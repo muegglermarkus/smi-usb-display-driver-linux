@@ -19,7 +19,7 @@ Builds [`evdi`](https://github.com/DisplayLink/evdi) from source, registers it w
 ### SMI Driver File
 The file `SMIUSBDisplay-driver.x.x.x.x.run` must be downloaded **separately** – it is proprietary and not included in this repository.
 
-1. Visit the SMI support page or your hardware distributor
+1. Visit the SMI support page or your hardware distributor (https://www.siliconmotion.com/downloads/index.html)
 2. Search for **USB Display Driver** under Support → Drivers
 3. Download the `.run` file and place it in the same directory as the install script
 
