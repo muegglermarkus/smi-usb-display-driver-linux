@@ -29,7 +29,7 @@ The file `SMIUSBDisplay-driver.x.x.x.x.run` must be downloaded **separately** â€
 
 ```bash
 # 1. Clone this repository
-git clone https://github.com/YOUR_USERNAME/smi-usb-display-driver-linux.git
+git clone https://github.com/muegglermarkus/smi-usb-display-driver-linux.git
 cd smi-usb-display-driver-linux
 
 # 2. Make the script executable
