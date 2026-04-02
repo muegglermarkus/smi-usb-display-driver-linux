@@ -1,0 +1,8 @@
+# SMI proprietärer Installer – nicht ins Repo!
+*.run
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
