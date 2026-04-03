@@ -16,10 +16,28 @@ Builds [`evdi`](https://github.com/DisplayLink/evdi) from source, registers it w
 - `sudo` / root access
 - Internet connection (to clone evdi from GitHub)
 
+### Secure Boot
+If Secure Boot is enabled, the script will check your MOK (Machine Owner Key) status before proceeding:
+
+- **MOK key missing** → script aborts with setup instructions
+- **MOK key not yet enrolled in UEFI** → script asks whether to continue anyway  
+  *(driver installs, but USB display won't work until after reboot + MOK enrollment)*
+- **MOK key enrolled** → everything works automatically
+
+To enroll your MOK key (if not done yet):
+
+```bash
+sudo mokutil --import /var/lib/shim-signed/mok/MOK.der
+sudo reboot
+# → In the blue UEFI screen: "Enroll MOK" → enter your password
+```
+
+If Secure Boot is **disabled**, no MOK setup is needed.
+
 ### SMI Driver File
 The file `SMIUSBDisplay-driver.x.x.x.x.run` must be downloaded **separately** – it is proprietary and not included in this repository.
 
-1. Visit the SMI support page or your hardware distributor (https://www.siliconmotion.com/downloads/index.html)
+1. Visit the SMI support page or your hardware distributor
 2. Search for **USB Display Driver** under Support → Drivers
 3. Download the `.run` file and place it in the same directory as the install script
 
@@ -29,7 +47,7 @@ The file `SMIUSBDisplay-driver.x.x.x.x.run` must be downloaded **separately** �
 
 ```bash
 # 1. Clone this repository
-git clone https://github.com/muegglermarkus/smi-usb-display-driver-linux.git
+git clone https://github.com/YOUR_USERNAME/smi-usb-display-driver-linux.git
 cd smi-usb-display-driver-linux
 
 # 2. Make the script executable
@@ -43,11 +61,12 @@ sudo ./SMI-USB-Display-install.sh /path/to/SMIUSBDisplay-driver.x.x.x.x.run
 
 | Step | Description |
 |------|-------------|
+| 0 | Checks Secure Boot status and MOK key enrollment |
 | 1 | Installs build dependencies (`build-essential`, `dkms`, `git`, `libdrm-dev`, kernel headers) |
 | 2 | Verifies kernel headers are present |
 | 3 | Clones `evdi` from GitHub |
 | 4 | Builds the `evdi` kernel module from source |
-| 5 | Registers `evdi` with DKMS (auto-reinstall on kernel updates) |
+| 5 | Installs the `evdi` module and registers it with DKMS (auto-reinstall on kernel updates) |
 | 6 | Runs the proprietary SMI `.run` installer |
 | 7 | Cleans up temporary files |
 
@@ -72,6 +91,23 @@ EVDI_VERSION=1.15.0 sudo ./SMI-USB-Display-install.sh ./SMIUSBDisplay-driver.x.x
 ---
 
 ## Troubleshooting
+
+### Secure Boot: `Key was rejected by service`
+
+This means Secure Boot is active and the MOK key is not yet enrolled in the UEFI firmware.
+
+```bash
+# Check Secure Boot status
+mokutil --sb-state
+
+# Check if MOK key is already enrolled
+mokutil --test-key /var/lib/shim-signed/mok/MOK.der
+
+# Enroll the key (if not yet done)
+sudo mokutil --import /var/lib/shim-signed/mok/MOK.der
+sudo reboot
+# → Blue UEFI screen: "Enroll MOK" → enter password
+```
 
 ### `evdi` not loaded after install
 
