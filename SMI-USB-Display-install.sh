@@ -1,10 +1,11 @@
 #!/bin/bash
 # =============================================================================
 # SMI USB Display Driver – Automated Installation
-# Tested on:  Ubuntu 26.04 Beta, Kernel 7.0.0-10-generic
-# Usage:      sudo ./SMI-USB-Display-install.sh ./SMIUSBDisplay-driver.2.24.7.0.run
+# Tested on:  Ubuntu 26.04 Beta, Kernel 7.0.0-14-generic
+#             MacBook Pro 2016 (snd_hda_macbookpro DKMS module)
+# Usage:      sudo ./SMI-USB-Display-install.sh ./SMIUSBDisplay-driver_2_24_7_0.run
 # Optional:   EVDI_VERSION=1.15.0 sudo ./SMI-USB-Display-install.sh ./SMI...run
-# Version:    3.0
+# Version:    3.1
 # =============================================================================
 
 set -euo pipefail
@@ -29,7 +30,6 @@ section() { echo -e "\n${BLUE}--- $1 ---${NC}"; }
 check_secure_boot() {
     section "Secure Boot Status prüfen"
 
-    local sb_active=false
     local mok_key="/var/lib/shim-signed/mok/MOK.der"
 
     # mokutil installieren falls nötig
@@ -40,7 +40,6 @@ check_secure_boot() {
 
     # Secure Boot Status ermitteln
     if mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
-        sb_active=true
         warn "Secure Boot ist AKTIV"
     else
         log "Secure Boot ist deaktiviert – kein MOK-Key nötig"
@@ -124,7 +123,7 @@ fi
 # --- Argument: SMI .run file ---
 SMI_INSTALLER="${1:-}"
 if [[ -z "$SMI_INSTALLER" || ! -f "$SMI_INSTALLER" ]]; then
-    err "Usage: sudo $0 /path/to/SMIUSBDisplay-driver.x.x.x.x.run"
+    err "Usage: sudo $0 /path/to/SMIUSBDisplay-driver_2_24_7_0.run"
 fi
 
 KERNEL=$(uname -r)
@@ -136,7 +135,7 @@ echo "=============================================="
 echo "  SMI USB Display – Driver Installation"
 echo "  Kernel: $KERNEL"
 echo "  evdi:   $EVDI_VERSION (GitHub)"
-echo "  Script: v3.0"
+echo "  Script: v3.1"
 echo "=============================================="
 
 # --- Secure Boot prüfen (vor allem anderen!) ---
@@ -248,7 +247,37 @@ PATH="$FAKE_BIN:$PATH" bash "$SMI_INSTALLER" \
 
 rm -rf "$FAKE_BIN"
 
-# --- 8. Cleanup ---
+# --- 8. softdep-Zeile entfernen (MacBook Pro / Apple HDA Kompatibilität) ---
+section "evdi modprobe-Config bereinigen"
+
+# Hintergrund: Der SMI-Installer schreibt eine softdep-Zeile in evdi.conf,
+# die die Modul-Ladereihenfolge beeinflusst. Auf Systemen mit
+# snd_hda_macbookpro DKMS-Modul (z.B. MacBook Pro 2016) führt dies zu
+# einem Kernel-Crash und Tonausfall beim nächsten Boot.
+# Die softdep-Zeile ist für die Funktion des USB-Displays nicht notwendig.
+
+EVDI_MODPROBE="/etc/modprobe.d/evdi.conf"
+if [[ -f "$EVDI_MODPROBE" ]]; then
+    if grep -q "^softdep" "$EVDI_MODPROBE"; then
+        warn "softdep-Zeile gefunden – wird entfernt (verhindert Crash auf Apple-Hardware)"
+        cp "$EVDI_MODPROBE" "${EVDI_MODPROBE}.bak"
+        sed -i '/^softdep/d' "$EVDI_MODPROBE"
+        log "softdep entfernt ✓  (Backup: ${EVDI_MODPROBE}.bak)"
+    else
+        log "evdi.conf ist sauber – keine softdep-Zeile vorhanden"
+    fi
+    info "Aktueller Inhalt von $EVDI_MODPROBE:"
+    cat "$EVDI_MODPROBE"
+else
+    warn "$EVDI_MODPROBE nicht gefunden – nichts zu bereinigen"
+fi
+
+# --- 9. initramfs neu bauen ---
+section "initramfs aktualisieren"
+log "Rebuilding initramfs..."
+update-initramfs -u || warn "update-initramfs fehlgeschlagen – bitte manuell ausführen: sudo update-initramfs -u"
+
+# --- 10. Cleanup ---
 section "Aufräumen"
 log "Removing temporary files..."
 rm -rf "$WORKDIR"
@@ -258,6 +287,9 @@ echo ""
 echo -e "${GREEN}=============================================="
 echo -e "  Installation abgeschlossen!"
 echo -e "==============================================${NC}"
+echo ""
+info "Installierte DKMS-Module:"
+dkms status
 echo ""
 
 MOK_KEY="/var/lib/shim-signed/mok/MOK.der"
@@ -283,4 +315,6 @@ else
     echo -e "${YELLOW}Nächster Schritt:${NC}"
     echo "  sudo reboot"
 fi
+echo ""
+echo -e "${GREEN}Hinweis:${NC} softdep wurde aus evdi.conf entfernt – Sound und Apple HDA bleiben stabil."
 echo ""
